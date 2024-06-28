@@ -1,2 +1,2 @@
-# ELECT : Empirical Bayes spline model learns multi-way genomic interactionsfrom single cell 3D genome data
+# MINTsC : Learning \textbf{M}ulti-way \textbf{INT}eractions from \textbf{s}ingle cell Hi-\textbf{C}
 ![ELECT diagram](/figures/intro.png)
