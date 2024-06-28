@@ -1,2 +1,2 @@
-# MINTsC : Learning <b>M</b>ulti-way <b>INT</b>eractions from <b>s</b>ingle cell Hi-<b>C</b>
+MINTsC : Learning **M**ulti-way **INT**eractions from **s**ingle cell Hi-**C**
 ![ELECT diagram](/figures/intro.png)
