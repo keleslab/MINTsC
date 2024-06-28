@@ -1,4 +1,4 @@
-
+#modified2
 
 
 options(scipen = 100, digits = 4)
@@ -8,7 +8,7 @@ options(scipen = 100, digits = 4)
 #library(data.table)
 #library(dplyr)
 
-pacman::p_load(purrr, furrr, parallel, data.table, dplyr,stringr,gtools)
+pacman::p_load(purrr, furrr, parallel, data.table, dplyr,stringr,gtools,igraph)
 
 
 find_cliques=function(binsize=500000,
@@ -18,7 +18,7 @@ find_cliques=function(binsize=500000,
                       corenum=20,
                       chrnum=23,
                       sizefile='hg19.chrom.sizes',
-                      ncellsthreshold=3){
+                      ncellsthreshold=3,Smax=10){
   
   
   
@@ -33,28 +33,44 @@ find_cliques=function(binsize=500000,
   
   
   future_map(ctlists,function(ct){   
+ 
     
-    
-    
-    hic_df_ct=lapply(1:chrnum,function(x)qs::qread(paste0(chrlist[x],'/hic_df_',chrlist[x],'_',ct,'.qs')) )
+
+    hic_df_ct=lapply(1:chrnum,function(x)qs::qread(paste0(chrlist[x],'/hic_df_',chrlist[x],'_',ct,'.qs'))[,c('cell','chr','binA','binB')] )
     hic_df_ct=do.call('rbind',hic_df_ct)
+#    if(ct=="2i")hic_df_ct=hic_df_ct[cell!="2i_2680"] 
     hic_df_ct=split(hic_df_ct,by='cell')    
     
     future::plan(multicore, workers = corenum)
-    
-    cliques_loop=future_map(hic_df_ct,function(tmp){   
+    system(paste0('mkdir ',output_dir,"/","'",ct,"'"))       
+future_map(hic_df_ct,function(tmp){   
       
-      
+if(!paste0("cell_clique_",tmp$cell[1],'.qs')%in%list.files(paste0(output_dir,"/",ct))){
+          
+          
       nodes<-c(paste0(tmp$chr,"_",tmp$binA),paste0(tmp$chr,"_",tmp$binB)) %>% unique      
       vertices=data.frame(nodes)    
-      edges <-tmp[,c('from','to'):=.(paste0(chr,"_",binA),paste0(chr,"_",binB))] #%>% mutate(from=paste0(V1,"_",V2),to=paste0(V3,"_",V4))
-      edges<-edges[,c('from','to')] #%>% dplyr::select(from,to,V5)
+      #edges <-tmp[,c('from','to'):=.(paste0(chr,"_",binA),paste0(chr,"_",binB))] 
+      edges <-tmp[,.('from'=paste0(chr,"_",binA),'to'=paste0(chr,"_",binB))] 
+#      edges<-edges[,c('from','to')]
       g <- igraph::graph_from_data_frame(edges, directed=FALSE, vertices=nodes)
-      three_clique<-igraph::cliques(g,min=3)
-      
-      
-      return(three_clique)    
+      three_clique<-igraph::cliques(g,min=3,max=Smax)
+#      mixedsort(names(three_clique))
+    tmpres=unlist(lapply(three_clique,function(x)paste(mixedsort(names(x)),collapse="-")))
+        
+qs::qsave(tmpres, paste0(output_dir,"/",ct,"/cell_clique_",tmp$cell[1],'.qs'))        
+          
+          
+          
+      }
+
+        
     })
+                     
+#cliques_loop=lapply(list.files(paste0(output_dir,"/",ct)),function(x){setwd(paste0(output_dir,"/",ct));qs::qread(x)})                     
+#If you do setwd within lapply, it will globally setwd as well. be careful.                     
+cliques_loop=lapply(list.files(paste0(output_dir,"/",ct)),function(x){qs::qread(paste0(output_dir,"/",ct,"/",x))})                     
+                     
     rm(hic_df_ct)
     gc()
     
@@ -67,8 +83,6 @@ find_cliques=function(binsize=500000,
     
     
   }           
-  
-  
   )
   
   
@@ -94,13 +108,9 @@ find_cliques=function(binsize=500000,
   
   
   
-#  cliques_loop_ct=qs::qread(paste0(output_dir,"/cliques_loop_3tomax.qs"))
-  future::plan(multicore, workers = celltypenum)
-#  Q=future_map(1:length(cliques_loop_ct),function(ct){as.character(unlist(lapply(cliques_loop_ct[[ct]],function(y)unlist(lapply(lapply(y,function(x)names(x)),function(x)paste(mixedsort(x),collapse = "-")) )))) }) %>% unlist seems unnecessary.
 
-Q=future_map(1:length(cliques_loop_ct),function(ct){as.character(unlist(lapply(cliques_loop_ct[[ct]],function(y)unlist(lapply(lapply(y,function(x)names(x)),function(x)paste(x,collapse = "-")) )))) }) %>% unlist      
-      
-      
+#Q=lapply(1:length(cliques_loop_ct),function(ct){as.character(unlist(lapply(cliques_loop_ct[[ct]],function(y)unlist(lapply(lapply(y,function(x)names(x)),function(x)paste(mixedsort(x),collapse = "-")) )))) }) %>% unlist #seems unnecessary.
+Q=unlist(cliques_loop_ct)#lapply(1:length(cliques_loop_ct),function(ct){as.character(unlist(lapply(cliques_loop_ct[[ct]],function(y)unlist(lapply(lapply(y,function(x)names(x)),function(x)paste(mixedsort(x),collapse = "-")) )))) }) %>% unlist #seems unnecessary.      
   qs::qsave(Q,paste0(output_dir,"/Q_notunique.qs"))   
   tableQ=Q %>% table
   
@@ -111,27 +121,54 @@ Q=future_map(1:length(cliques_loop_ct),function(ct){as.character(unlist(lapply(c
   
   Q_unique=names(tableQ)
   cliquesize<-sapply(strsplit(Q_unique, "-"), length)
+  chrlabel=word(Q_unique,1,sep="_")                                                                                                                               
   Smax=max(cliquesize)
   
   
   chrlist=c(paste0("chr",c(1:(chrnum-1),"X")))
-  options(future.globals.maxSize= Inf)  
-  #  for(S in 3:Smax){
+  options(future.globals.maxSize= Inf)
+  future::plan(multicore, workers = length(3:Smax))                                                                                                                                 
+
+                                                                                                                                 
+Qdat=data.table(Q_unique,chrlabel,cliquesize,ncell=as.numeric(tableQ ))
+rm(Q_unique)
+rm(chrlabel)                                                                                                                                 
+rm(tableQ)
+rm(cliquesize)
+gc()
+qs::qsave(Qdat,
+            paste0(output_dir,'/Q_summary.qs')) 
+                                                                                                                                                  
+
+                                                                                               
   future_map(4:Smax,function(S){    
-    assign(paste0("Q",S),Q_unique[cliquesize==S]) 
-    
-    
-    
-    qs::qsave(lapply(chrlist,function(x){get(paste0("Q",S))[word(get(paste0("Q",S)),1,sep="_")==x]}),
-              paste0(output_dir,'/Q',S,'_filtered_list.qs'))    
+
+      
+      
+qs::qsave(lapply(chrlist,function(x){Qdat[cliquesize==S&chrlabel==x]$Q_unique}),
+              paste0(output_dir,'/Q',S,'_filtered_list.qs'))                                                                                                                                  
+      
   }
   
   )   
   
-  Q3=unique(Q[Q%in%Q_unique[cliquesize==3&tableQ>ncellsthreshold]]) 
-  qs::qsave(lapply(chrlist,function(x){Q3[word(Q3,1,sep="_")==x]}),
+#  Q3=unique(Q[Q%in%Q_unique[cliquesize==3&tableQ>ncellsthreshold]])
+# chrlabel_3=word(Q3,1,sep="_")                                                                                                                                 
+#  qs::qsave(lapply(chrlist,function(x){Q3[chrlabel_3==x]}),
+#            paste0(output_dir,'/Q3_filtered_list.qs')) 
+                                                                                                                                 
+                                                                                                                                 
+                                                                                                                                 
+                                                                                                                                 
+qs::qsave(lapply(chrlist,function(x){Qdat[cliquesize==3&chrlabel==x&ncell>ncellsthreshold]$Q_unique}),
             paste0(output_dir,'/Q3_filtered_list.qs')) 
-  
+                                                                                                                                 
+                                                                                                                                 
+                                                                                                                
+rm(Qdat)
+gc()                                                                                                                                 
+                                                                                                                                 
+                                                                                                                                 
   
   #  for(S in 3:Smax){
   future_map(3:Smax,function(S){     
