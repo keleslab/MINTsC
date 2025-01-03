@@ -2,9 +2,6 @@ options(scipen = 100, digits = 4)
 pacman::p_load(splines,dplyr,data.table,stringr,purrr,furrr,COUNT,optimParallel,
                RhpcBLASctl,purrr,doParallel,foreach)
 
-#cell_depth=data.frame(cell_type,depth=summaryfile$depth)[,-2]
-#colnames(cell_depth)=c("cell","depth")
-#mean_depth=mean(cell_depth[,2])
 
 split_vector_into_chunks <- function(vector, n) {
   total_sum <- sum(vector)
@@ -37,7 +34,7 @@ split_vector_into_chunks <- function(vector, n) {
 
 
 
-stat_gen_pois_corr_mle=function(r,a_dat,p,lower,upper,binsize=10000,S,epsilon,k){
+stat_gen_pois_corr_mle=function(r_dat,a_dat,p,lower,upper,binsize=10000,S,epsilon,r){
   
   
   
@@ -50,10 +47,10 @@ stat_gen_pois_corr_mle=function(r,a_dat,p,lower,upper,binsize=10000,S,epsilon,k)
   
   
   
-  #diag=(as.numeric(word(word(p,2,sep="-"),2,sep="_"))-as.numeric(word(word(p,1,sep="-"),2,sep="_")))/binsize
+ 
   
-  if(!(all(diag<=upper&diag>=lower)&length(unique(r$locipair))==choose(S,2))){return(NA)}        
-  if(all(diag<=upper&diag>=lower)&length(unique(r$locipair))==choose(S,2)){     
+  if(!(all(diag<=upper&diag>=lower)&length(unique(r_dat$locipair))==choose(S,2))){return(NA)}        
+  if(all(diag<=upper&diag>=lower)&length(unique(r_dat$locipair))==choose(S,2)){     
     
     tmp=data.table(d=diag,p=p)
     
@@ -66,7 +63,7 @@ stat_gen_pois_corr_mle=function(r,a_dat,p,lower,upper,binsize=10000,S,epsilon,k)
       locipair=tmp$p
     )
     
-    tmpmat<- r[,c("cell","locipair","cc")][zerotmp, on = c("cell","locipair")]    
+    tmpmat<- r_dat[,c("cell","locipair","cc")][zerotmp, on = c("cell","locipair")]    
     
     
     
@@ -102,9 +99,9 @@ stat_gen_pois_corr_mle=function(r,a_dat,p,lower,upper,binsize=10000,S,epsilon,k)
     tmpmat=(tmpmat %>% group_by(locipair) %>% summarise(Zstat=sum(cc-E)/sqrt(sum(V)))) %>% mutate(pvals=pnorm(Zstat,lower.tail=FALSE),ord=rank(pvals))
     
     
-    part_loc=unique(c(fstloc[tmpmat$ord<(k+1)],sndloc[tmpmat$ord<(k+1)]))
+    part_loc=unique(c(fstloc[tmpmat$ord<(r+1)],sndloc[tmpmat$ord<(r+1)]))
     n_top_contacting=length(part_loc)
-    top_locipair=paste0(chrlist[chr],'_',fstloc[tmpmat$ord<(k+1)],'-',sndloc[tmpmat$ord<(k+1)])
+    top_locipair=paste0(chrlist[chr],'_',fstloc[tmpmat$ord<(r+1)],'-',sndloc[tmpmat$ord<(r+1)])
     
     
     
@@ -112,37 +109,13 @@ stat_gen_pois_corr_mle=function(r,a_dat,p,lower,upper,binsize=10000,S,epsilon,k)
     
     
     #return(list(pvals=tmpmat$pvals,n_top_contacting=n_top_contacting))
-    return(list(pvals=tmpmat$pvals,Zvals=tmpmat$Zstat,n_top_contacting=n_top_contacting,name_top=paste(paste0(chrlist[chr],"_",part_loc),collapse = "-"),top_locipair=top_locipair))
+    return(list(pvals=tmpmat$pvals,locipair=tmpmat$locipair,Zvals=tmpmat$Zstat,n_top_contacting=n_top_contacting,name_top=paste(paste0(chrlist[chr],"_",part_loc),collapse = "-"),top_locipair=top_locipair))
   }        
   
   
   
   
 }
-
-
-
-
-trim_outliers_iqr <- function(x, outlier_factor = 1.5) {
-  # Calculate the first quartile (Q1) and third quartile (Q3)
-  q1 <- quantile(x, 0.25)
-  q3 <- quantile(x, 0.75)
-  
-  # Calculate the interquartile range (IQR)
-  iqr <- q3 - q1
-  
-  # Define the lower and upper bounds for trimming outliers
-  lower_bound <- q1 - outlier_factor * iqr
-  upper_bound <- q3 + outlier_factor * iqr
-  
-  # Trim the outliers
-  x_trimmed <- x[x >= lower_bound & x <= upper_bound]
-  
-  return(x_trimmed)
-}
-
-
-
 
 
 
@@ -160,10 +133,10 @@ nlogL=function(alpha,dat,epsilon){
   d_dat=dat[,.(Nalpha=mean(Nalpha),indloggammaalpha=sum(indA*lgamma(alpha+cc)),Zloggamma=mean(C_NzA*lgamma(alpha)),Nloggamma=mean(N_A*lgamma(alpha))),by="d"]
   
   res=celln*sum(lgamma(d_dat$Nalpha+d_dat$NCepsilon))+
-    sum(d_dat$indloggammaalpha)+ #already summed over k
-    sum(d_dat$Zloggamma)-#already summed over k
+    sum(d_dat$indloggammaalpha)+ #already summed over r
+    sum(d_dat$Zloggamma)-#already summed over r
     celln*sum(d_dat$Nloggamma)-
-    sum(lgamma((dat[,.(Ck=mean(depth)),by="cell"] )$Ck+sum(d_dat$Nalpha)+sum(d_dat$NCepsilon)))#already summed over k
+    sum(lgamma((dat[,.(Ck=mean(depth)),by="cell"] )$Ck+sum(d_dat$Nalpha)+sum(d_dat$NCepsilon)))#already summed over r
   
   
   return(-res)
@@ -186,10 +159,10 @@ gr_nlogL=function(alpha,dat,epsilon){
   d_dat=dat[,.(N_A=mean(N_A),Nalpha=mean(Nalpha),NCepsilon=mean(NCepsilon),inddigammaalpha=sum(indA*digamma(alpha+cc)),Zdigamma=mean(C_NzA*digamma(alpha)),Ndigamma=mean(N_A*digamma(alpha))),by="d"]
   
   grad=celln*d_dat$N_A*digamma(d_dat$Nalpha+d_dat$NCepsilon)+
-    d_dat$inddigammaalpha+ #already summed over k
-    d_dat$Zdigamma-#already summed over k
+    d_dat$inddigammaalpha+ #already summed over r
+    d_dat$Zdigamma-#already summed over r
     celln*d_dat$Ndigamma-
-    d_dat$N_A*sum(digamma((dat[,.(Ck=mean(depth)),by="cell"] )$Ck+sum(d_dat$Nalpha)+sum(d_dat$NCepsilon)))#already summed over k
+    d_dat$N_A*sum(digamma((dat[,.(Ck=mean(depth)),by="cell"] )$Ck+sum(d_dat$Nalpha)+sum(d_dat$NCepsilon)))#already summed over r
   
   
   
@@ -211,33 +184,41 @@ gr_nlogL=function(alpha,dat,epsilon){
 
 P_value_generate=function(
     L=20,
-    lower=1,
-    tau=0.005,
+    tau=0,
     binsize=500000,
-    data_dir='/afs/cs.wisc.edu/p/keles/Collab_2022/VolumeA/Manybody/data/Ramani2017/tmp/',
-    output_dir='/afs/cs.wisc.edu/p/keles/Collab_2022/VolumeA/Manybody/results/Ramani2017/tmp/',
-    Smax=7,Smin=3,
-    celltypenum=4,
-    corenum=4,
-    core_chr=4,
+    data_dir='/storage10/kwangmoon/MINTsC/data/Ramani2017/',
+    output_dir='/storage10/kwangmoon/MINTsC/results/Ramani2017/',
+    Smin=3,Smax=5,
+    corenum_celltype=1,
+    corenum_optim=10,
+    corenum_chr=2,
     chrnum=23,
     sizefile='hg19.chrom.sizes',
-    chrlevel.exist=TRUE,upper=NULL,epsilon=0.00000001,automate_upper=TRUE,k_default=TRUE,k_lists=NULL){
+    chrlevel_data.exist=FALSE,
+    automate_upper=TRUE,
+    lower=1,upper=NULL,
+    epsilon=0.00001,
+    r_lists=NULL,
+    chrlist=NULL,
+    cell_type_file=NULL){
   
   
   options(scipen = 100, digits = 4)
   setwd(data_dir)
-  cell_type=qs::qread("cell_type.qs")
+  if(!is.null(cell_type_file)){cell_type=qs::qread(cell_type_file)}
+  if(is.null(cell_type_file)){cell_type=qs::qread("cell_type.qs")}
   colnames(cell_type)=c("cell","cluster")
-  chrlist=c(paste0("chr",c(1:(chrnum-1),"X")))
+  if(is.null(chrlist)){chrlist=c(paste0("chr",c(1:(chrnum-1),"X")))}
   
   
   
   setwd(data_dir)
-  if(chrlevel.exist==FALSE){
+  if(chrlevel_data.exist==FALSE){
     for(chr in 1:chrnum){
       
-      cell_type=qs::qread("cell_type.qs")
+      if(!is.null(cell_type_file)){cell_type=qs::qread(cell_type_file)}
+      if(is.null(cell_type_file)){cell_type=qs::qread("cell_type.qs")}
+      
       ctlists=unique(cell_type[,2])
       hic_df=lapply(ctlists,function(x)qs::qread(paste0(chrlist[chr],'/hic_df_',chrlist[chr],'_',x,'.qs')) )
       hic_df=do.call('rbind',hic_df)
@@ -256,12 +237,12 @@ P_value_generate=function(
   }
   
   
-  system(paste0('cd ', output_dir,'; mkdir ',"L",L,"_lower",lower,"_upper",upper))
+  system(paste0('cd ', output_dir,'; mkdir clique_scores'))
   S_ind=0
   for(S in Smin:Smax){
     S_ind=S_ind+1  
-    if(k_default){k=S-1}
-    if(!k_default){k=k_lists[S_ind]}
+    if(is.null(r_lists)){r=S-1}
+    if(!is.null(r_lists)){r=r_lists[S_ind]}
     
     pairwise_list=qs::qread(paste0(output_dir,'/pairwise_',S,'_filtered_list.qs'))
     Q_list=qs::qread(paste0(output_dir,'/Q',S,'_filtered_list.qs'))
@@ -270,7 +251,7 @@ P_value_generate=function(
     size<-fread(sizefile)
     
     
-    system(paste0('cd ', output_dir,'; mkdir ',"L",L,"_lower",lower,"_upper",upper,'/size',S))
+    system(paste0('cd ', output_dir,'; mkdir clique_scores/size',S))
     
     
     
@@ -279,12 +260,10 @@ P_value_generate=function(
     
     
     
-    #  for(chr in 1:chrnum){
-    #cl_chr <- makeCluster(core_chr)
-    cl_chr <-parallelly::makeClusterPSOCK(core_chr)
+    cl_chr <-parallelly::makeClusterPSOCK(corenum_chr)
     registerDoParallel(cl_chr)     
     foreach(chr=c(1:chrnum),.packages=(.packages()), .export=c('nlogL','gr_nlogL','stat_gen_pois_corr_mle'))%dopar%{      
-      system(paste0('cd ', output_dir,"/L",L,"_lower",lower,"_upper",upper,'/size',S,'; mkdir ',chrlist[chr]))        
+      system(paste0('cd ', output_dir,'/clique_scores/size',S,'; mkdir ',chrlist[chr]))        
       pairwise_3=pairwise_list[[chr]]
       chrsize=size[V1==chrlist[chr]]$V2%/%binsize
       
@@ -303,7 +282,7 @@ P_value_generate=function(
         
         for(ct in unique(cell_type[,2])){
           
-          saveRDS(NULL,paste0(output_dir,"/L",L,"_lower",lower,"_upper",upper,'/size',S,"/",chrlist[chr],"/","porder_",ct,"_DirMult_bandlevel_mle_Aset_filtered.qs"))                
+          saveRDS(NULL,paste0(output_dir,'/clique_scores/size',S,"/",chrlist[chr],"/","porder_",ct,"_DirMult_bandlevel_mle_Aset_filtered.qs"))                
         }
         
       }  
@@ -334,7 +313,7 @@ P_value_generate=function(
         
         
         options(future.globals.maxSize= Inf)    
-        future::plan(multicore, workers = celltypenum)    
+        future::plan(multicore, workers = corenum_celltype)    
         future_map(unique(cell_type[,2]),function(x){ 
           celln=as.numeric(table(cell_type[,2])[x])
           A_dat=hic_df[,c('cluster','locipair','d','prob_nonzero','N')]%>% distinct
@@ -346,7 +325,7 @@ P_value_generate=function(
           tmp=hic_df[cluster==x]
           C_NnzAtmp=tmp[,c('locipair','d')][,.(C_NnzA=sum(locipair%in%A_dat[indA==1]$locipair)),by=d] %>% arrange(d)
           A_dat=A_dat[C_NnzAtmp,on="d"][,"C_NzA":=celln*N_A-C_NnzA]
-          qs::qsave(A_dat,paste0(output_dir,"/L",L,"_lower",lower,"_upper",upper,'/size',S,'/',chrlist[chr],"/A_dat_",x,'_filtered.qs'))    
+          qs::qsave(A_dat,paste0(output_dir,'/clique_scores/size',S,'/',chrlist[chr],"/A_dat_",x,'_filtered.qs'))    
         })
         
         
@@ -358,15 +337,12 @@ P_value_generate=function(
         hic_df=0
         rm(hic_df)    
         gc()    
-        
-        # clust <- makeCluster(celltypenum)
-        # registerDoParallel(clust)
-        # foreach(ct = unique(cell_type[,2]),.packages=(.packages()), .export=c('nlogL','gr_nlogL','stat_gen_pois_corr_mle')) %dopar% {        
-        future::plan(multicore, workers = celltypenum)    
+        options(future.globals.maxSize= Inf)  
+        future::plan(multicore, workers = corenum_celltype)    
         options(future.globals.maxSize= Inf)  
         future_map(unique(cell_type[,2]),function(ct){
           
-          #          print(nlogL)
+
           
           
           
@@ -424,7 +400,7 @@ P_value_generate=function(
           model_fixed_pois <- glm(data=tmpdat,bandS ~ ns(d,L), family="poisson",offset=c(log(depth)))    
           tmpdat=tmpdat[,"muhat" := .(exp(predict(model_fixed_pois,tmpdat)))]
           tmpdat=tmpdat[,"phat" := muhat/depth,by=cell] 
-          qs::qsave(tmpdat,paste0(output_dir,"/L",L,"_lower",lower,"_upper",upper,'/size',S,'/',chrlist[chr],"/phat_",ct,'.qs'))
+          qs::qsave(tmpdat,paste0(output_dir,'/clique_scores/size',S,'/',chrlist[chr],"/phat_",ct,'.qs'))
           #tmpdat contains bandlevel prediction even for zero count bands.  
           
           
@@ -441,7 +417,7 @@ P_value_generate=function(
           
           
           
-          #rawdat=as.data.table(rawdat)
+
           cell_depth_dat=distinct(rawdat[cell%in%unique(rawdat$cell)][,c("cell","depth")])
           rawdat=rawdat[,c("cell","locipair","cc")] #%>% dplyr::select(c("cell","locipair","cc"))
           
@@ -450,19 +426,18 @@ P_value_generate=function(
           
           
           options(future.globals.maxSize= Inf)  
-          future::plan(multicore, workers = corenum)                     
+          future::plan(multicore, workers = corenum_optim)                     
           
           
           tmp <- future_map(pairwise_3[withinrange], function(groups) {                   
-            r=rawdat[locipair %in% groups]
-            if(length(unique(r$locipair))!=choose(S,2)){return(NA)}
-            if(length(unique(r$locipair))==choose(S,2)){return(r)}
+            r_dat=rawdat[locipair %in% groups]
+            if(length(unique(r_dat$locipair))!=choose(S,2)){return(NA)}
+            if(length(unique(r_dat$locipair))==choose(S,2)){return(r_dat)}
           })
           
           rawdat=tmp
           
-          #          rm(tmp)                   
-          #          gc()
+
           
           setDT(tmpdat)
           
@@ -476,7 +451,7 @@ P_value_generate=function(
           #N_A per d summarizes how many of the loci pairs have indA==1
           
           
-          A_dat=qs::qread(paste0(output_dir,"/L",L,"_lower",lower,"_upper",upper,'/size',S,'/',chrlist[chr],"/A_dat_",ct,'_filtered.qs'))
+          A_dat=qs::qread(paste0(output_dir,'/clique_scores/size',S,'/',chrlist[chr],"/A_dat_",ct,'_filtered.qs'))
           
           tmp=A_dat[hic_df,on=c("locipair","d","N")]%>% na.omit
           
@@ -495,8 +470,8 @@ P_value_generate=function(
           
           
           
-          
-          future::plan(multicore, workers = corenum)                   
+          options(future.globals.maxSize= Inf)  
+          future::plan(multicore, workers = corenum_optim)                   
           tmp2 <- future_map(pairwise_3[withinrange], function(groups) {                   
             A_dat[locipair %in% groups] 
           })
@@ -504,20 +479,14 @@ P_value_generate=function(
           
           A_dat=tmp2                   
           
-          #          rm(tmp2)                   
-          #          gc()                   
-          
-          #nzeroj_ind=which(arrange(tmp[,.(s=sum(N_A)),by="d"],d)$s!=0)
           tt=arrange(tmp[,.(s=sum(N_A)),by="d"],d)
           nzeroj_ind=(lower:upper)[(lower:upper)%in%tt[(tt$s!=0),]$d]
           
-          # cl <- makeCluster(corenum)     
-          
-          cl <-parallelly::makeClusterPSOCK(corenum)
+          cl <-parallelly::makeClusterPSOCK(corenum_optim)
           
           
           clusterEvalQ(cl, library("data.table")) %>% invisible
-          # upper = 1,
+          
           setDefaultCluster(cl=cl)
           set.seed(1)  
           init=sort(runif(length(lower:upper),min=0,max=0.01),decreasing=TRUE)#rep(0.5,length(lower:upper))
@@ -539,43 +508,39 @@ P_value_generate=function(
           param=rep(1e-15,length(lower:upper))
           param[which(tmp[,.(s=sum(N_A)),by="d"]$s!=0)]=opt_res$par
           alphadat=data.table(d=lower:upper,alphaj=param)    
-          qs::qsave(alphadat,paste0(output_dir,"/L",L,"_lower",lower,"_upper",upper,'/size',S,'/',chrlist[chr],"/alphahat_",ct,'.qs'))
-          #alphadat=data.table(d=lower:upper,alphaj=opt_res$par)    
+          qs::qsave(alphadat,paste0(output_dir,'/clique_scores/size',S,'/',chrlist[chr],"/alphahat_",ct,'.qs'))
+            
           rm(opt_res)
           gc()                            
+          options(future.globals.maxSize= Inf) 
+          future::plan(multicore, workers = corenum_optim)    
           
-          future::plan(multicore, workers = corenum)    
           
           
-          options(future.globals.maxSize= Inf)  
           start_time <- Sys.time()
-          res=future_pmap(list(rawdat[!is.na(rawdat)],A_dat[!is.na(rawdat)],pairwise_3[withinrange][!is.na(rawdat)]),stat_gen_pois_corr_mle,lower=lower,upper=upper,binsize=binsize,S=S,epsilon=epsilon,k=k)
+          res=future_pmap(list(rawdat[!is.na(rawdat)],A_dat[!is.na(rawdat)],pairwise_3[withinrange][!is.na(rawdat)]),stat_gen_pois_corr_mle,lower=lower,upper=upper,binsize=binsize,S=S,epsilon=epsilon,r=r)
           end_time <- Sys.time()
           end_time - start_time
           
           
-          
-          
-          
-          
-          
-          #zscores=res %>% unlist
-          porder=lapply(lapply(res,function(x)x$pvals),function(x)sort(x)[k]) %>% unlist
-          Zvals=lapply(lapply(res,function(x)x$Zvals),function(x)sort(x,decreasing = TRUE)[k]) %>% unlist
+          porder=lapply(lapply(res,function(x)x$pvals),function(x)sort(x)[r]) %>% unlist
+          Zvals=lapply(lapply(res,function(x)x$Zvals),function(x)sort(x,decreasing = TRUE)[r]) %>% unlist
           names(porder)=Q_list[[chr]][withinrange][!is.na(rawdat)]#pairwise_3[withinrange]       
           
           porder=porder[which(lapply(res,function(x)x$n_top_contacting>=S) %>% unlist)]
           Zvals=Zvals[which(lapply(res,function(x)x$n_top_contacting>=S) %>% unlist)]
           top_locipairs=lapply(res,function(x)x$top_locipair)[which(lapply(res,function(x)x$n_top_contacting>=S) %>% unlist)] 
-          qs::qsave(Zvals,paste0(output_dir,"/L",L,"_lower",lower,"_upper",upper,'/size',S,"/",chrlist[chr],"/","Zorder_",ct,"_DirMult_bandlevel_mle_Aset_filtered.qs"))
-          qs::qsave(porder,paste0(output_dir,"/L",L,"_lower",lower,"_upper",upper,'/size',S,"/",chrlist[chr],"/","porder_",ct,"_DirMult_bandlevel_mle_Aset_filtered.qs"))
-          qs::qsave(top_locipairs,paste0(output_dir,"/L",L,"_lower",lower,"_upper",upper,'/size',S,"/",chrlist[chr],"/","top_locipairs_",ct,"_DirMult_bandlevel_mle_Aset_filtered.qs"))
+          res=res[which(lapply(res,function(x)x$n_top_contacting>=S) %>% unlist)]
+          qs::qsave(res,paste0(output_dir,'/clique_scores/size',S,"/",chrlist[chr],"/","pairwise_",ct,"_DirMult_bandlevel_mle_Aset_filtered.qs"))
+          qs::qsave(Zvals,paste0(output_dir,'/clique_scores/size',S,"/",chrlist[chr],"/","Zorder_",ct,"_DirMult_bandlevel_mle_Aset_filtered.qs"))
+          qs::qsave(porder,paste0(output_dir,'/clique_scores/size',S,"/",chrlist[chr],"/","porder_",ct,"_DirMult_bandlevel_mle_Aset_filtered.qs"))
+          qs::qsave(top_locipairs,paste0(output_dir,'/clique_scores/size',S,"/",chrlist[chr],"/","top_locipairs_",ct,"_DirMult_bandlevel_mle_Aset_filtered.qs"))
           rm(porder)
           gc()                     
           print(ct)                   
           
         }
-        #stopCluster(cl_chr)  
+
         )
         
       }
