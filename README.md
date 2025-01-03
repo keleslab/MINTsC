@@ -3,7 +3,7 @@
 
 ## MINTsC Usage
 
-### 1. Preparation
+### Preparation
 
 
 First of all, before cloning the MINTsC github package, go to the right directory that you would like to implement MINTsC. In the cmd terminal, do
