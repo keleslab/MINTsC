@@ -38,5 +38,5 @@ pacman::p_load(splines,dplyr,data.table,stringr,purrr,furrr,COUNT,optimParallel,
                RhpcBLASctl,purrr,doParallel,foreach)
 ```
 
-Details about implementing codes can be found in the [Tutorial]([https://github.com/keleslab/Muscle/wiki](https://github.com/keleslab/MINTsC/blob/main/code/scripts/Tutorial.ipynb)) of this github, which uses the Ramani _et al._2017 scHi-C data as a tutorial.
+Details about implementing codes can be found in the [Tutorial](https://github.com/keleslab/MINTsC/blob/main/code/scripts/Tutorial.ipynb) of this github, which uses the Ramani _et al._2017 scHi-C data as a tutorial.
 
