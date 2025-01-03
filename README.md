@@ -38,5 +38,5 @@ pacman::p_load(splines,dplyr,data.table,stringr,purrr,furrr,COUNT,optimParallel,
                RhpcBLASctl,purrr,doParallel,foreach)
 ```
 
-Details about implementing codes can be found in the [Tutorial](https://github.com/keleslab/MINTsC/blob/main/code/scripts/Tutorial.ipynb) of this github, which uses the Ramani _et al._2017 scHi-C data as a tutorial.
+Details about implementing codes can be found in the [Tutorial](https://github.com/keleslab/MINTsC/blob/main/code/scripts/Tutorial.ipynb) of this github, which uses the [Ramani et al.2017](https://www.nature.com/articles/nmeth.4155) scHi-C data as a tutorial.
 
