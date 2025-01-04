@@ -20,7 +20,7 @@ then go on to the next step. {MINTsC directory} could be for example /storage10/
 For cloning the github repository, again on the cmd terminal, run the linux code 
 
 ```
-git clone git@github.com:keleslab/MINTsC.git
+git clone https://github.com/keleslab/MINTsC.git
 ```
 
 For R, we need the requirements as below : 
