@@ -231,7 +231,7 @@ P_value_generate=function(
   if(automate_upper==TRUE){
     hic_df=qs::qread(paste0('hic_df_',chrlist[chrnum-1],'.qs')) 
     hic_df=hic_df[,c('binA','binB','d') := .(binA/binsize,binB/binsize,binB/binsize-binA/binsize)]#%>%mutate(binA=binA/binsize,binB=binB/binsize,d=binB-binA) 
-    upper=(hic_df[,.(zeropoint=min(which(d %>% unique %>% sort  %>% diff!=1))+1),by="cluster"]$zeropoint %>% min)%/%10*10%>%suppressWarnings()
+    (upper=(hic_df[,.(zeropoint=min(which(d %>% unique %>% sort  %>% diff!=1))+1),by="cluster"]$zeropoint %>% min)%/%10*10)%>%suppressWarnings()
     if(!is.finite(upper)){upper=max(hic_df$d)}
     
   }
