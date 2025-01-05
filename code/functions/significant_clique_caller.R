@@ -1,4 +1,4 @@
-significant_clique_caller=function(output_subdir="/storage10/kwangmoon/MINTsC/results/Ramani2017/L20_lower1_upper40/",
+significant_clique_caller=function(output_dir="/storage10/kwangmoon/MINTsC/results/Ramani2017/",
                                    S=3,r=2,cell_type="GM12878",fdr_cutoff=0.05,plot.it=TRUE,
                                    chrlist=c(paste0("chr",c(1:22,"X"))),p.adjust.method="BH"){
   
@@ -8,7 +8,7 @@ significant_clique_caller=function(output_subdir="/storage10/kwangmoon/MINTsC/re
   porder_list=list()
   Zorder_list=list()
   for( chr in 1:num_chr){
-    setwd(output_subdir)
+    setwd(paste0(output_dir,"/clique_scores"))
     tmp_p=tryCatch(qs::qread(paste0('size',S,'/',chrlist[chr],"/","porder_",cell_type,"_DirMult_bandlevel_mle_Aset_filtered.qs")) %>% unlist%>% suppressWarnings
                    ,error=function(e){return(NA)})
     porder_list[[chr]]=tmp_p
