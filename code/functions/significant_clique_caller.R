@@ -26,7 +26,7 @@ significant_clique_caller=function(output_dir="/storage10/kwangmoon/MINTsC/resul
   x=runif(length(porder_allchr))
   param_porder=pbeta(porder_allchr,r,choose(S,2)-r+1)
   fdr=p.adjust(param_porder, method ="BH")#<0.05    
-  sig_group=sort(fdr,decreasing=TRUE)<fdr_cutoff
+  sig_group=fdr<fdr_cutoff
   sig_group_for_plot=sort(fdr,decreasing=TRUE)<fdr_cutoff
   if(plot.it){
     plot(sort(-log(x),na.last = TRUE),sort(-log(param_porder),na.last = TRUE),cex=2,cex.lab=1.5,cex.axis=1.5,cex.main=2,main=paste0(cell_type," p-value (Size=",S,")"),ylab="-log10(Observed)",xlab="-log10(Expected)",col=as.character(ifelse(sig_group_for_plot,"indianred","grey70")))
