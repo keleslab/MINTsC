@@ -188,7 +188,7 @@ P_value_generate=function(
     binsize=500000,
     data_dir='/storage10/kwangmoon/MINTsC/data/Ramani2017/',
     output_dir='/storage10/kwangmoon/MINTsC/results/Ramani2017/',
-    Smin=3,Smax=5,
+    Smin=3,Smax=6,
     corenum_celltype=1,
     corenum_optim=10,
     corenum_chr=2,
