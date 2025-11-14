@@ -35,7 +35,9 @@ significant_clique_caller=function(output_dir="/storage10/kwangmoon/MINTsC/resul
     
     
   }
-  df=data.frame(clique=names(porder_allchr),pscore=porder_allchr,zscore=Zorder_allchr,pvalue=param_porder,fdr=fdr,multiway_interaction=sig_group)
+  if(length(names(porder_allchr))!=length(porder_allchr)){return(NULL)}
+    
+    df=data.frame(clique=names(porder_allchr),pscore=porder_allchr,zscore=Zorder_allchr,pvalue=param_porder,fdr=fdr,multiway_interaction=sig_group)
   rownames(df)=NULL
   return(df)
   
