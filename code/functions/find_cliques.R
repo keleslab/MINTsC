@@ -11,7 +11,7 @@ find_cliques=function(binsize=500000,
                       corenum_cells=20,
                       chrnum=23,
                       sizefile='hg19.chrom.sizes',
-                      ncellsthreshold_c0=1,ncellsthreshold_c1=0,Smax=10,
+                      ncellsthreshold_c0=1,ncellsthreshold_c1=0,Smax=6,
                       chrlist=NULL){
   
   
