@@ -375,7 +375,7 @@ P_value_generate=function(
           end_time <- Sys.time()
           end_time - start_time
           
-          # ---- CHANGED BLOCK STARTS HERE ----
+
           porder=lapply(lapply(res,function(x)x$pvals),function(x)sort(x)[r]) %>% unlist
           Zvals=lapply(lapply(res,function(x)x$Zvals),function(x)sort(x,decreasing = TRUE)[r]) %>% unlist
           
@@ -394,7 +394,7 @@ P_value_generate=function(
             gc()                     
             print(ct)     
           }
-          # ---- CHANGED BLOCK ENDS HERE ----
+
           
         })
       }
